@@ -1,4 +1,4 @@
-# 환자별 설문 횟수를 엑셀로 변환하는 코드
+# 환자별 설문 총 횟수를 엑셀로 변환하는 코드
 import pandas as pd
 
 data1_path = 'raw_data1.csv'
@@ -34,6 +34,6 @@ table1 = table1[table1['srvy_cnt'] != 0]
 table2 = table2[(table2['PHQ-9'] != 0) | (table2['P4'] != 0) | (table2['Loneliness'] != 0)]
 
 # 엑셀로 변환
-with pd.ExcelWriter('output.xlsx') as writer:
+with pd.ExcelWriter('survey_all.xlsx') as writer:
     table1.to_excel(writer, sheet_name='raw_data1', index=False)
     table2.to_excel(writer, sheet_name='raw_data2', index=False)
