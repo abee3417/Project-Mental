@@ -111,6 +111,7 @@ class Mental():
         self.np_x_sup = self.np_x_sup[mask[:, 0] == 1]
         self.np_y = self.np_y[mask[:, 0] == 1]
         self.np_yy = self.np_y[:, d_idx]
+        self.id_list_filtered = np.array(self.id_list)[mask[:, 0] == 1]  # Filter id_list
 
         total = len(self.np_y[:, 0])
         cnt_0 = len(np.where(self.np_y[:, 0] == 0)[0]) / total
@@ -118,7 +119,9 @@ class Mental():
 
         print("\tnormal: %.2f\tabnormal: %.2f" % (cnt_0, cnt_1))
 
-        self.train_x, self.test_x, self.train_y, self.test_y = train_test_split(self.np_x, self.np_yy, test_size=0.1, random_state=42)
+        self.train_x, self.test_x, self.train_y, self.test_y, self.train_id, self.test_id = train_test_split(
+            self.np_x, self.np_yy, self.id_list_filtered, test_size=0.1, random_state=42
+        )
 
     def train(self):
         self.make_ds("Loneliness")
@@ -141,6 +144,20 @@ class Mental():
         pred_smote = self.model_smote.predict_proba(self.test_x)[:, 1]
         pred = (pred_rus + pred_smote) / 2
         pred_binary = np.where(pred > 0.5, 1, 0)
+
+        # menti_seq별 예측 결과 저장
+        results = []
+        for i, menti_seq in enumerate(self.test_id):
+            results.append({
+                "menti_seq": menti_seq,
+                "Predicted": pred_binary[i],
+                "Actual": self.test_y[i]
+            })
+
+        # 결과를 파일로 저장
+        results_df = pd.DataFrame(results)
+        results_df = results_df.sort_values(by="menti_seq")
+        results_df.to_csv("prediction_results.csv", index=False)
 
         cm = confusion_matrix(self.test_y, pred_binary)
         print(classification_report(self.test_y, pred_binary))
