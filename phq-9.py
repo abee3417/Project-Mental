@@ -87,16 +87,16 @@ class Mental():
                     (raw_data2_df["menti_seq"] == id) & (raw_data2_df["srvy_name"] == d), "srvy_result"].to_numpy()
 
                 if len(y_tmp) > 1:  # abnormal condition
-                   # self.np_y[idx, d_idx] = np.clip(y_tmp[0] * y_tmp[-1], None, 1)
+                    self.np_y[idx, d_idx] = np.clip(y_tmp[0] * y_tmp[-1], None, 1)
                    # 1 이상 값을 1로 클립
-                    clipped_y_tmp = np.clip(y_tmp, 0, 1)
+                    #clipped_y_tmp = np.clip(y_tmp, 0, 1)
                     # 평균 계산
-                    mean_y_tmp = np.mean(clipped_y_tmp)
+                    #mean_y_tmp = np.mean(clipped_y_tmp)
                     # 평균이 0.6 이상인 경우 환자로 판단
-                    if mean_y_tmp >= 0.6:
-                        self.np_y[idx, d_idx] = 1
-                    else:
-                        self.np_y[idx, d_idx] = 0
+                    #if mean_y_tmp >= 0.6:
+                    #    self.np_y[idx, d_idx] = 1
+                    #else:
+                     #   self.np_y[idx, d_idx] = 0
                     self.np_x_sup[idx, d_idx, -len(y_tmp) + 1:] = np.clip(y_tmp[:-1], None, 1)
 
     def create_model(self, scale_pos_weight):
@@ -129,7 +129,7 @@ class Mental():
         print("\tnormal: %.2f\tabnormal: %.2f" % (cnt_0, cnt_1))
 
         self.train_x, self.test_x, self.train_y, self.test_y, self.train_id, self.test_id = train_test_split(
-            self.np_x, self.np_yy, self.id_list_filtered, test_size=0.2, random_state=42
+            self.np_x, self.np_yy, self.id_list_filtered, test_size=0.1, random_state=42
         )
 
     def train(self):
