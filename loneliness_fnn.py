@@ -7,7 +7,8 @@ from keras.layers import Input, Dense, Dropout
 from tensorflow.python.keras.utils.np_utils import to_categorical
 from matplotlib import pyplot as plt
 from sklearn.metrics import confusion_matrix, classification_report
-
+from sklearn.model_selection import train_test_split
+from imblearn.over_sampling import SMOTE
 
 def plot_confusion_matrix(cm, classes, normalize=False, title='Confusion matrix', cmap=plt.cm.Blues):
     plt.ioff()
@@ -37,7 +38,6 @@ def plot_confusion_matrix(cm, classes, normalize=False, title='Confusion matrix'
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
     plt.show()
-
 
 class PlotLosses(keras.callbacks.Callback):
     def __init__(self, val_data=None, train_data=None):
@@ -83,7 +83,6 @@ class PlotLosses(keras.callbacks.Callback):
             self.legend = True
         plt.pause(0.01)
 
-
 class Mental():
     def __init__(self):
         self.D = ["PHQ-9", "P4", "Loneliness"]
@@ -92,16 +91,17 @@ class Mental():
             {"name": "P4", "win": 3},
             {"name": "Loneliness", "win": 3}
         ]
-        self.TIME_SLOT = 40
+        self.TIME_SLOT = 40  # 설문조사갯수
         self.CLASS = ["normal", "abnormal"]
         self.BATCH_SIZE = 1024
 
         self.features = [
-            "check1_value", #"check2_value",
-            "check3_value", "check4_value", "check5_value", 
-            #"check6_value",
-            "service1", "service2", "service3",
-            "service9", "service10",
+            "check1_value", "check2_value", 
+            "check3_value", "check4_value", "check5_value", "check6_value",
+            "service1", "service2", "service3", "service4", "service5", 
+            "service6", "service7", "service8", "service9", "service10", 
+            "service11", "service12", "service13", "service14", "service15", 
+            "service16", 
         ]
         self.feature_nums = len(self.features)
 
@@ -114,7 +114,7 @@ class Mental():
         raw_data2_df = raw_data2_df.sort_values(by="reg_date").copy()
         self.id_list = np.unique(raw_data1_df["menti_seq"]).tolist()
 
-        self.np_x = np.ones((len(self.id_list), self.feature_nums), dtype=np.float32) * -1
+        self.np_x = np.ones((len(self.id_list), self.TIME_SLOT, self.feature_nums), dtype=np.int32) * -1
         self.np_y = np.ones((len(self.id_list), 3), dtype=np.int32) * -1
         self.np_x_sup = np.ones((len(self.id_list), 3, 130), dtype=np.int32) * -1
 
@@ -122,31 +122,26 @@ class Mental():
             xx = raw_data1_df.loc[raw_data1_df["menti_seq"] == id].copy()
             idx = self.id_list.index(id)
             np_data = xx[self.features].to_numpy()
+            time_len = len(np_data[:, 1])
+            self.feature_nums = len(np_data[0, :])
 
-            # Average the check values for each feature over available time slots
-            avg_data = np.mean(np_data, axis=0)
-            self.np_x[idx] = avg_data
+            self.np_x[idx, -time_len:] = np_data
 
             for d_idx, d_row in enumerate(self.D_LIST):
                 d = d_row["name"]
                 y_tmp = raw_data2_df.loc[
                     (raw_data2_df["menti_seq"] == id) & (raw_data2_df["srvy_name"] == d), "srvy_result"].to_numpy()
 
-                if len(y_tmp) > 1:
-                    clipped_y_tmp = np.clip(y_tmp, 0, 1)
-                    mean_y_tmp = np.mean(clipped_y_tmp)
-                    if mean_y_tmp >= 0.6:
-                        self.np_y[idx, d_idx] = 1
-                    else:
-                        self.np_y[idx, d_idx] = 0
+                if len(y_tmp) > 1:  # abnormal condition
+                    self.np_y[idx, d_idx] = np.clip(y_tmp[0] * y_tmp[-1], None, 1)
                     self.np_x_sup[idx, d_idx, -len(y_tmp) + 1:] = np.clip(y_tmp[:-1], None, 1)
 
     def create_model(self):
-        input = Input(shape=(self.feature_nums,), name="input_0", batch_size=self.BATCH_SIZE)
+        input = Input(shape=(self.TIME_SLOT * self.feature_nums,), name="input_0")
 
-        x = Dense(6, activation='relu')(input)
+        x = Dense(128, activation='relu')(input)
         x = Dropout(0.5)(x)
-        x = Dense(4, activation='relu')(x)
+        x = Dense(64, activation='relu')(x)
         x = Dropout(0.5)(x)
         output = Dense(2, activation='softmax')(x)
 
@@ -164,60 +159,47 @@ class Mental():
             idx = self.id_list.index(id)
             if self.np_y[idx, d_idx] == -1:
                 mask[idx] = 0
-
-        self.np_x = self.np_x[mask[:, 0] == 1]
+                continue
+        self.np_x = self.np_x[mask[:, 0] == 1].reshape(-1, self.TIME_SLOT * self.feature_nums)
         self.np_x_sup = self.np_x_sup[mask[:, 0] == 1]
         self.np_y = self.np_y[mask[:, 0] == 1]
-        self.np_yy = to_categorical(self.np_y[:, d_idx], num_classes=len(self.CLASS))
+        self.np_yy = self.np_y[:, d_idx]
+        self.id_list_filtered = np.array(self.id_list)[mask[:, 0] == 1]  # Filter id_list
 
         total = len(self.np_y[:, 0])
         cnt_0 = len(np.where(self.np_y[:, 0] == 0)[0]) / total
         cnt_1 = len(np.where(self.np_y[:, 0] == 1)[0]) / total
-        cnt_2 = len(np.where(self.np_y[:, 0] == -1)[0]) / total
 
-        print("\tnormal: %.2f\tabnormal: %.2f, %.2f" % (cnt_0, cnt_1, cnt_2))
+        print("\tnormal: %.2f\tabnormal: %.2f" % (cnt_0, cnt_1))
 
-        dict_train = {"input_0": tf.data.Dataset.from_tensor_slices(self.np_x)}
-
-        labels = tf.data.Dataset.from_tensor_slices(self.np_yy)
-        dataset = tf.data.Dataset.zip((dict_train, labels))
-
-        data_size = len(self.np_y[:, 1])
-        self.train_size = int(data_size * 0.9)
-        self.test_size = data_size - self.train_size
-        self.train_dataset = dataset.take(self.train_size)
-        self.test_dataset = dataset.skip(self.train_size)
-
-        self.train_dataset = self.train_dataset.shuffle(self.train_size).batch(self.BATCH_SIZE)
-        self.test_dataset = self.test_dataset.batch(self.BATCH_SIZE)
-
-        self.train_dataset = self.train_dataset.cache()
-        self.train_dataset = self.train_dataset.prefetch(tf.data.experimental.AUTOTUNE)
-        self.test_dataset = self.test_dataset.cache()
-        self.test_dataset = self.test_dataset.prefetch(tf.data.experimental.AUTOTUNE)
+        self.train_x, self.test_x, self.train_y, self.test_y, self.train_id, self.test_id = train_test_split(
+            self.np_x, self.np_yy, self.id_list_filtered, test_size=0.2, random_state=42
+        )
 
     def train(self):
         self.make_ds("Loneliness")
-        self.model = self.create_model()
-        try:
-            self.model.fit(
-                x=self.train_dataset,
-                validation_data=self.test_dataset,
-                epochs=100,
-                callbacks=[PlotLosses()]
-            )
-        except KeyboardInterrupt:
-            pass
+
+        # 오버샘플링 모델 (normal 데이터에 대해서만 오버샘플링 적용)
+        smote = SMOTE(sampling_strategy=0.5)
+        train_x_smote, train_y_smote = smote.fit_resample(self.train_x, self.train_y)
+        train_y_smote = to_categorical(train_y_smote, num_classes=len(self.CLASS))  # 원-핫 인코딩
+
+        self.model_smote = self.create_model()
+        self.model_smote.fit(
+            train_x_smote, train_y_smote,
+            validation_data=(self.test_x, to_categorical(self.test_y, num_classes=len(self.CLASS))),
+            epochs=100,
+            batch_size=self.BATCH_SIZE,
+            callbacks=[PlotLosses()]
+        )
 
     def test(self):
-        target_y = self.np_yy[-self.test_size:]
-        pred = self.model.predict(self.test_dataset)
+        pred = self.model_smote.predict(self.test_x)
         y_pred = np.argmax(pred, axis=1)
-        y_true = np.argmax(target_y, axis=1)
-        cm = confusion_matrix(y_true=y_true, y_pred=y_pred)
+        y_true = self.test_y
+        cm = confusion_matrix(y_true, y_pred)
         print(classification_report(y_true, y_pred))
         plot_confusion_matrix(cm=cm, classes=self.CLASS, title='confusion_matrix')
-
 
 m = Mental()
 m.train()

@@ -197,13 +197,13 @@ class Mental():
         self.test_dataset = self.test_dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
     def train(self):
-        self.make_ds("PHQ-9")
+        self.make_ds("Loneliness")
         self.model = self.create_model()
         try:
             self.model.fit(
                 x=self.train_dataset,
                 validation_data=self.test_dataset,
-                epochs=10000,
+                epochs=1000,
                 callbacks=[PlotLosses()]
             )
         except KeyboardInterrupt:
