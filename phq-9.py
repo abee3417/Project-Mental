@@ -4,8 +4,6 @@ import numpy as np
 import xgboost as xgb
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
-from imblearn.under_sampling import RandomUnderSampler
-from imblearn.over_sampling import SMOTE
 from matplotlib import pyplot as plt
 
 def plot_confusion_matrix(cm, classes, normalize=False, title='Confusion matrix', cmap=plt.cm.Blues):
@@ -51,10 +49,10 @@ class Mental():
         self.features = [
             "check1_value", "check2_value", 
             "check3_value", "check4_value", "check5_value", "check6_value",
-            #"service1", "service2", "service3", "service4", "service5", 
-            #"service6", "service7", "service8", "service9", "service10", 
-            #"service11", "service12", "service13", "service14", "service15", 
-            #"service16", 
+            "service1", "service2", "service3", "service4", "service5", 
+            "service6", "service7", "service8", "service9", "service10", 
+            "service11", "service12", "service13", "service14", "service15", 
+            "service16", 
         ]
         self.feature_nums = len(self.features)
 
@@ -87,16 +85,16 @@ class Mental():
                     (raw_data2_df["menti_seq"] == id) & (raw_data2_df["srvy_name"] == d), "srvy_result"].to_numpy()
 
                 if len(y_tmp) > 1:  # abnormal condition
-                    self.np_y[idx, d_idx] = np.clip(y_tmp[0] * y_tmp[-1], None, 1)
-                   # 1 이상 값을 1로 클립
-                    #clipped_y_tmp = np.clip(y_tmp, 0, 1)
-                    # 평균 계산
-                    #mean_y_tmp = np.mean(clipped_y_tmp)
-                    # 평균이 0.6 이상인 경우 환자로 판단
-                    #if mean_y_tmp >= 0.6:
-                    #    self.np_y[idx, d_idx] = 1
-                    #else:
-                     #   self.np_y[idx, d_idx] = 0
+                    #self.np_y[idx, d_idx] = np.clip(y_tmp[0] * y_tmp[-1], None, 1)
+                   #1 이상 값을 1로 클립
+                    clipped_y_tmp = np.clip(y_tmp, 0, 1)
+                    #평균 계산
+                    mean_y_tmp = np.mean(clipped_y_tmp)
+                    #평균이 0.6 이상인 경우 환자로 판단
+                    if mean_y_tmp >= 0.6:
+                       self.np_y[idx, d_idx] = 1
+                    else:
+                       self.np_y[idx, d_idx] = 0
                     self.np_x_sup[idx, d_idx, -len(y_tmp) + 1:] = np.clip(y_tmp[:-1], None, 1)
 
     def create_model(self, scale_pos_weight):
