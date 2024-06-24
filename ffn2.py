@@ -150,9 +150,8 @@ class Mental():
     def create_model(self):
         input = Input(shape=(self.feature_nums,), name="input_0", batch_size=self.BATCH_SIZE)
 
-        x = Dense(6, activation='relu')(input)
-        x = Dropout(0.5)(x)
-        x = Dense(4, activation='relu')(x)
+
+        x = Dense(2, activation='relu')(input)
         x = Dropout(0.5)(x)
         output = Dense(2, activation='softmax')(x)
 

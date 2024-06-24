@@ -124,8 +124,10 @@ class Mental():
         self.BATCH_SIZE = 1024
 
         self.features = [
-            "check1_value", "check2_value",
-            "check3_value", "check4_value", "check5_value", "check6_value",
+            "check1_value", #"check2_value",
+            "check3_value", "check4_value", "check5_value", #"check6_value",
+            "service1", "service2", "service3",
+            "service9", "service10",
         ]
         self.feature_nums = len(self.features)
 
@@ -163,35 +165,28 @@ class Mental():
 
     def create_model(self):
         print("[COCOModel] create_model()")
-        list_concat = []
-        list_input = []
-        for i in range(2):
-            input_name = "input_" + str(i)
-            if i == 0:
-                input = Input(shape=(40, self.feature_nums), name=input_name, batch_size=self.BATCH_SIZE)
-            else:
-                pass
+        input_layer = Input(shape=(self.TIME_SLOT, self.feature_nums), name="input_0", batch_size=self.BATCH_SIZE)
 
-            list_input.append(input)
+        # CNN Layer for 1D data (time series)
+        x = Conv1D(filters=64, kernel_size=9, padding='same', activation='relu')(input_layer)
+        x = MaxPooling1D(pool_size=2)(x)
+        x = Conv1D(filters=32, kernel_size=9, padding='same', activation='relu')(x)
+        x = MaxPooling1D(pool_size=2)(x)
+        x = Flatten()(x)
 
-            input = Masking(mask_value=0)(input) #masking 40개의 설문이없는경우 0으로설정
-            conv = Conv1D(filters=64, kernel_size=3, padding='same', activation='relu')(input)
-            conv = MaxPooling1D(pool_size=2)(conv)
-            conv = Flatten()(conv)
-            list_concat.append(conv)
+        x = Dense(128, activation='relu')(x)
+        x = Dropout(0.5)(x)
+        x = Dense(64, activation='relu')(x)
+        x = Dropout(0.5)(x)
+        output = Dense(2, activation='softmax')(x)
 
-        z = Concatenate(axis=1)(list_concat)
-        z = Dense(128, activation='relu')(z)
-        z = Dropout(0.1)(z) #dropout 비율
-        output = Dense(2, activation='softmax')(z)
-
-        model = keras.Model(inputs=list_input[0], outputs=output)
+        model = keras.Model(inputs=input_layer, outputs=output)
         model.compile(optimizer=keras.optimizers.Adam(learning_rate=5e-4),
-                      loss=keras.losses.CategoricalCrossentropy(),
-                      metrics=[keras.metrics.CategoricalAccuracy(),
-                               keras.metrics.F1Score(average="macro")
-                               ]
-                      )
+                    loss=keras.losses.CategoricalCrossentropy(),
+                    metrics=[keras.metrics.CategoricalAccuracy(),
+                            keras.metrics.F1Score(average="macro")
+                            ]
+                    )
         model.summary()
         return model
 
