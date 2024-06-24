@@ -94,9 +94,8 @@ class Mental():
                         self.np_y[idx, d_idx] = 0
                     self.np_x_sup[idx, d_idx, -len(y_tmp) + 1:] = np.clip(y_tmp[:-1], None, 1)
 
-    def create_model(self, C_value, gamma_value):
-        # SVM Model with RBF kernel, adjusted cost (C) parameter, and gamma parameter
-        model = SVC(kernel='rbf', C=C_value, gamma=gamma_value, probability=True) #C_value는 경계의 널널함 마진, 감마는 경계의 허용정도 높을수록 경계가 구불구불해진다, 다항식 커널의경우 degree가 높고 규제 code0f가적을수록 타이트하게분류
+    def create_model(self, C_value):
+        model = SVC(kernel='linear', C=C_value, probability=True)
         return model
 
     def make_ds(self, d):
@@ -123,18 +122,11 @@ class Mental():
         scaler = StandardScaler()
         self.np_x = scaler.fit_transform(self.np_x)
 
-        dict_train = {"input_0": self.np_x}
-
-        labels = self.np_yy
-        data_size = len(self.np_y[:, 1])
-        self.train_size = int(data_size * 0.9)
-        self.test_size = data_size - self.train_size
-
         self.train_x, self.test_x, self.train_y, self.test_y = train_test_split(self.np_x, self.np_yy, test_size=0.1, random_state=42)
 
-    def train(self, C_value=1.0, gamma_value='scale'):
+    def train(self, C_value=1.0):
         self.make_ds("PHQ-9")
-        self.model = self.create_model(C_value, gamma_value)
+        self.model = self.create_model(C_value)
         self.model.fit(self.train_x, np.argmax(self.train_y, axis=1))
 
     def test(self):
@@ -146,5 +138,5 @@ class Mental():
 
 
 m = Mental()
-m.train(C_value=1.0, gamma_value=3.0)  # Adjust the C and gamma values here
+m.train(C_value=1.0)
 m.test()

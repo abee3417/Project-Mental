@@ -87,8 +87,10 @@ class Mental():
         self.BATCH_SIZE = 1024
 
         self.features = [
-            "check1_value", "check2_value",
-            "check3_value", "check4_value", "check5_value", "check6_value",
+            "check1_value", 
+            "check3_value", "check4_value","check5_value",
+            "service1", "service2", "service3",
+            "service9", "service10",
         ]
         self.feature_nums = len(self.features)
 

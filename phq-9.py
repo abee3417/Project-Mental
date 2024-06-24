@@ -47,12 +47,10 @@ class Mental():
         self.BATCH_SIZE = 1024
 
         self.features = [
-            "check1_value", "check2_value", 
-            "check3_value", "check4_value", "check5_value", "check6_value",
-            "service1", "service2", "service3", "service4", "service5", 
-            "service6", "service7", "service8", "service9", "service10", 
-            "service11", "service12", "service13", "service14", "service15", 
-            "service16", 
+            "check1_value", 
+            "check3_value", "check4_value","check5_value",
+            "service1", "service2", "service3",
+            "service9", "service10",
         ]
         self.feature_nums = len(self.features)
 
@@ -65,7 +63,7 @@ class Mental():
         raw_data2_df = raw_data2_df.sort_values(by="reg_date").copy()
         self.id_list = np.unique(raw_data1_df["menti_seq"]).tolist()
 
-        self.np_x = np.ones((len(self.id_list), self.TIME_SLOT, self.feature_nums), dtype=np.int32) * -1
+        self.np_x = np.ones((len(self.id_list), self.TIME_SLOT), dtype=np.float32) * -1
         self.np_y = np.ones((len(self.id_list), 3), dtype=np.int32) * -1
         self.np_x_sup = np.ones((len(self.id_list), 3, 130), dtype=np.int32) * -1
 
@@ -75,9 +73,10 @@ class Mental():
             idx = self.id_list.index(id)
             np_data = xx[self.features].to_numpy()
             time_len = len(np_data[:, 1])
-            self.feature_nums = len(np_data[0, :])
 
-            self.np_x[idx, -time_len:] = np_data
+            # Calculate the mean for each time slot
+            mean_data = np.mean(np_data, axis=1)
+            self.np_x[idx, -time_len:] = mean_data
 
             for d_idx, d_row in enumerate(self.D_LIST):
                 d = d_row["name"]
@@ -85,12 +84,8 @@ class Mental():
                     (raw_data2_df["menti_seq"] == id) & (raw_data2_df["srvy_name"] == d), "srvy_result"].to_numpy()
 
                 if len(y_tmp) > 1:  # abnormal condition
-                    #self.np_y[idx, d_idx] = np.clip(y_tmp[0] * y_tmp[-1], None, 1)
-                   #1 이상 값을 1로 클립
                     clipped_y_tmp = np.clip(y_tmp, 0, 1)
-                    #평균 계산
                     mean_y_tmp = np.mean(clipped_y_tmp)
-                    #평균이 0.6 이상인 경우 환자로 판단
                     if mean_y_tmp >= 0.6:
                        self.np_y[idx, d_idx] = 1
                     else:
@@ -114,11 +109,11 @@ class Mental():
             if self.np_y[idx, d_idx] == -1:
                 mask[idx] = 0
                 continue
-        self.np_x = self.np_x[mask[:, 0] == 1].reshape(-1, self.TIME_SLOT * self.feature_nums)
+        self.np_x = self.np_x[mask[:, 0] == 1]
         self.np_x_sup = self.np_x_sup[mask[:, 0] == 1]
         self.np_y = self.np_y[mask[:, 0] == 1]
         self.np_yy = self.np_y[:, d_idx]
-        self.id_list_filtered = np.array(self.id_list)[mask[:, 0] == 1]  # Filter id_list
+        self.id_list_filtered = np.array(self.id_list)[mask[:, 0] == 1]
 
         total = len(self.np_y[:, 0])
         cnt_0 = len(np.where(self.np_y[:, 0] == 0)[0]) / total
@@ -133,23 +128,13 @@ class Mental():
     def train(self):
         self.make_ds("PHQ-9")
 
-        # 언더샘플링 모델
-        rus = RandomUnderSampler(random_state=42)
-        train_x_rus, train_y_rus = rus.fit_resample(self.train_x, self.train_y)
-        self.model_rus = self.create_model(scale_pos_weight=1)
-        self.model_rus.fit(train_x_rus, train_y_rus)
-
-        # 오버샘플링 모델
-        smote = SMOTE(random_state=42)
-        train_x_smote, train_y_smote = smote.fit_resample(self.train_x, self.train_y)
-        self.model_smote = self.create_model(scale_pos_weight=1)
-        self.model_smote.fit(train_x_smote, train_y_smote)
+        # 모델 생성 및 학습
+        self.model = self.create_model(scale_pos_weight=1)
+        self.model.fit(self.train_x, self.train_y)
 
     def test(self):
-        # 두 모델의 예측 결과를 평균하여 결합
-        pred_rus = self.model_rus.predict_proba(self.test_x)[:, 1]
-        pred_smote = self.model_smote.predict_proba(self.test_x)[:, 1]
-        pred = (pred_rus + pred_smote) / 2
+        # 예측 결과
+        pred = self.model.predict(self.test_x)
         pred_binary = np.where(pred > 0.5, 1, 0)
 
         # menti_seq별 예측 결과 저장

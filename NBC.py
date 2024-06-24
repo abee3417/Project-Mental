@@ -125,7 +125,7 @@ class Mental():
 
         self.train_x, self.test_x, self.train_y, self.test_y = train_test_split(self.np_x, self.np_yy, test_size=test_size, random_state=42)
 
-    def train(self, test_size=0.1):
+    def train(self, test_size=0.2):
         self.make_ds("PHQ-9", test_size)
         self.model = self.create_model()
         self.model.fit(self.train_x, np.argmax(self.train_y, axis=1))
@@ -139,5 +139,5 @@ class Mental():
 
 
 m = Mental()
-m.train(test_size=0.1)  # Adjust the test size here if needed
+m.train(test_size=0.2)  # Adjust the test size here if needed
 m.test()

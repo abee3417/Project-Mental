@@ -7,7 +7,13 @@ from keras.layers import Input, Dense, Dropout
 from tensorflow.python.keras.utils.np_utils import to_categorical
 from matplotlib import pyplot as plt
 from sklearn.metrics import confusion_matrix, classification_report
+import random
 
+# 무작위 시드 설정
+def set_random_seed(seed=42):
+    np.random.seed(seed)
+    random.seed(seed)
+    tf.random.set_seed(seed)
 
 def plot_confusion_matrix(cm, classes, normalize=False, title='Confusion matrix', cmap=plt.cm.Blues):
     plt.ioff()
@@ -183,7 +189,7 @@ class Mental():
         dataset = tf.data.Dataset.zip((dict_train, labels))
 
         data_size = len(self.np_y[:, 1])
-        self.train_size = int(data_size * 0.9)
+        self.train_size = int(data_size * 0.8)
         self.test_size = data_size - self.train_size
         self.train_dataset = dataset.take(self.train_size)
         self.test_dataset = dataset.skip(self.train_size)
@@ -197,7 +203,7 @@ class Mental():
         self.test_dataset = self.test_dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
     def train(self):
-        self.make_ds("Loneliness")
+        self.make_ds("PHQ-9")
         self.model = self.create_model()
         try:
             self.model.fit(
@@ -218,6 +224,9 @@ class Mental():
         print(classification_report(y_true, y_pred))
         plot_confusion_matrix(cm=cm, classes=self.CLASS, title='confusion_matrix')
 
+
+# 무작위 시드 설정
+set_random_seed(42)
 
 m = Mental()
 m.train()
